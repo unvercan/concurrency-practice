@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CountDownLatch;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import tr.unvercanunlu.practice.concurrency.cache.ICache;
@@ -15,30 +16,32 @@ public class CacheTest {
   @SneakyThrows
   @Test
   void testThreadNotIsolated() {
+    CountDownLatch latch = new CountDownLatch(1);
+
     ICache<String, String> cache = new Cache<>();
 
     Runnable task1 = () -> {
       cache.set("key", "task1");
+      latch.countDown(); // signal that task 1 done
     };
 
     Runnable task2 = () -> {
-      cache.set("key", "task2");
+      try {
+        latch.await(); // wait for task 1 done
+        cache.set("key", "task2");
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
     };
 
     Thread thread1 = new Thread(task1);
     Thread thread2 = new Thread(task2);
 
     thread1.start();
-    Thread.sleep(1000);
-    thread1.join(1000);
-
-    Thread.sleep(1000);
-
     thread2.start();
-    Thread.sleep(1000);
-    thread2.join(1000);
 
-    Thread.sleep(1000);
+    thread1.join();
+    thread2.join();
 
     assertEquals("task2", cache.get("key"));
   }

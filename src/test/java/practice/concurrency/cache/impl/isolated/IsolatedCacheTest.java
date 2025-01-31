@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
@@ -16,30 +17,30 @@ class IsolatedCacheTest {
   @SneakyThrows
   @Test
   void testThreadIsolation() {
+    CountDownLatch latch = new CountDownLatch(1);
+
     ICache<String, String> cache = new IsolatedCache<>();
 
     AtomicReference<String> value1 = new AtomicReference<>();
     AtomicReference<String> value2 = new AtomicReference<>();
 
     Runnable task1 = () -> {
-      cache.set("name", "task1");
-      value1.set(cache.get("name"));
-
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      }
+      assertFalse(cache.contains("key"));
+      cache.set("key", "task1");
+      value1.set(cache.get("key"));
+      latch.countDown(); // signal that task 1 done
     };
 
     Runnable task2 = () -> {
-      cache.set("name", "task2");
-      value2.set(cache.get("name"));
-
       try {
-        Thread.sleep(1000);
+        latch.await(); // wait for task 1 done
+        assertFalse(cache.contains("key"));
+        cache.set("key", "task2");
+        value2.set(cache.get("key"));
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
+      } finally {
+        latch.countDown(); // signal that task 2 done
       }
     };
 
@@ -49,7 +50,10 @@ class IsolatedCacheTest {
     thread1.start();
     thread2.start();
 
-    Thread.sleep(1000);
+    latch.await(); // ensure tasks done
+
+    thread1.join();
+    thread2.join();
 
     assertNotEquals(value1.get(), value2.get());
     assertEquals("task1", value1.get());

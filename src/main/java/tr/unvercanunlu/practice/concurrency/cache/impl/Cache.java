@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import tr.unvercanunlu.practice.concurrency.cache.ICache;
 
+// Not Thread-Safe
 public class Cache<K, V> implements ICache<K, V> {
 
   private final Map<K, V> map = new HashMap<>();

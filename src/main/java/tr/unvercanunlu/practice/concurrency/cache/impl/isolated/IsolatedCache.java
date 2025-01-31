@@ -4,11 +4,11 @@ import java.util.HashMap;
 import java.util.Map;
 import tr.unvercanunlu.practice.concurrency.cache.ICache;
 
-// Isolated-State Thread-Safety
-// ThreadLocal: each thread has own isolated data
+// Thread-Safe Isolated State
+// Uses ThreadLocal to provide each thread with its own isolated cache
 public class IsolatedCache<K, V> implements ICache<K, V> {
 
-  // isolated data for each thread
+  // Each thread maintains its own isolated cache using ThreadLocal
   private final ThreadLocal<Map<K, V>> localMap = ThreadLocal.withInitial(HashMap::new);
 
   @Override
@@ -36,6 +36,7 @@ public class IsolatedCache<K, V> implements ICache<K, V> {
     this.localMap.get().clear();
   }
 
+  // Clears the cache for the current thread, freeing memory
   public void complete() {
     this.localMap.remove();
   }
